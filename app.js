@@ -1,13 +1,6 @@
 const welcomeContainer = document.getElementById('welcome-container');
 const gameContainer = document.getElementById('game-container');
 const startGameBtn = document.getElementById('start-game');
-const pointsSpan = document.getElementById('points');
-const voiceButton = document.getElementById('voice-button');
-const transcriptSpan = document.getElementById('transcript');
-const treeImg = document.getElementById('tree');
-const stageVideo = document.getElementById('stage-video');
-const muteButton = document.getElementById('mute-button');
-const backgroundAudio = document.getElementById('background-audio');
 
 // WARNING: It is not secure to hardcode an API key in a real application.
 const API_KEY = 'AIzaSyCmO2zV5M4_MsFIUsqKBYIqVoytW-Hf_0o';
@@ -22,20 +15,110 @@ const stages = [
     { points: 200, video: 'assets/stage4.mp4' },
 ];
 
+function updateAudioDebugInfo() {
+    const audio = document.getElementById('background-audio');
+    const debugInfo = document.getElementById('audio-debug-info');
+    if (audio && debugInfo) {
+        debugInfo.innerHTML = `
+            Time: ${audio.currentTime.toFixed(1)}s<br>
+            Duration: ${audio.duration || 'N/A'}<br>
+            Paused: ${audio.paused}<br>
+            Muted: ${audio.muted}<br>
+            Volume: ${audio.volume}<br>
+            Error: ${audio.error ? audio.error.code : 'none'}
+        `;
+    }
+}
+
 startGameBtn.addEventListener('click', () => {
+    // Show the game container
     welcomeContainer.style.display = 'none';
     gameContainer.style.display = 'block';
 
-    if (backgroundAudio) {
-        backgroundAudio.play().catch(error => console.error("Audio play failed:", error));
-    }
-});
+    // Now that the container is visible, get the elements inside it
+    const muteButton = document.getElementById('mute-button');
+    const audio = document.getElementById('background-audio');
+    const voiceButton = document.getElementById('voice-button');
+    const transcriptSpan = document.getElementById('transcript');
+    const pointsSpan = document.getElementById('points');
+    const treeImg = document.getElementById('tree');
+    const stageVideo = document.getElementById('stage-video');
 
-muteButton.addEventListener('click', () => {
-    if (backgroundAudio) {
-        backgroundAudio.muted = !backgroundAudio.muted;
-        muteButton.textContent = backgroundAudio.muted ? '🔇' : '🔊';
+    // Set up mute button listener
+    muteButton.addEventListener('click', () => {
+        if (audio) {
+            audio.muted = !audio.muted;
+            muteButton.textContent = audio.muted ? '🔇' : '🔊';
+        }
+    });
+
+    // Play audio and start diagnostics
+    if (audio) {
+        audio.play().catch(error => console.error("Audio play failed:", error));
     }
+    setInterval(updateAudioDebugInfo, 500);
+
+    // Set up speech recognition
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.lang = 'en-US';
+
+        voiceButton.addEventListener('click', () => {
+            if (voiceButton.textContent === 'Speak') {
+                recognition.start();
+                voiceButton.textContent = 'Listening...';
+            } else {
+                recognition.stop();
+                voiceButton.textContent = 'Speak';
+            }
+        });
+
+        recognition.onresult = async (event) => {
+            const transcript = event.results[0][0].transcript.toLowerCase();
+            transcriptSpan.textContent = `You said: "${transcript}"`;
+
+            voiceButton.textContent = 'Thinking...';
+            voiceButton.disabled = true;
+            const awardedPoints = await getImpactFromAI(transcript);
+            voiceButton.textContent = 'Speak';
+            voiceButton.disabled = false;
+
+            if (awardedPoints > 0) {
+                points += awardedPoints;
+                pointsSpan.textContent = points;
+                transcriptSpan.textContent += `\nAI awarded ${awardedPoints} points!`;
+
+                const currentStage = stages.slice().reverse().find(stage => points >= stage.points);
+                if (currentStage) {
+                    treeImg.style.display = 'none';
+                    stageVideo.style.display = 'block';
+                    const videoUrl = new URL(currentStage.video, window.location.href).href;
+                    if (stageVideo.src !== videoUrl) {
+                        stageVideo.src = currentStage.video;
+                    }
+                }
+            } else {
+                transcriptSpan.textContent += '\nAI detected no significant environmental impact.';
+            }
+        };
+
+        recognition.onend = () => {
+            if (voiceButton.textContent === 'Listening...') {
+                voiceButton.textContent = 'Speak';
+            }
+        };
+
+    } else {
+        voiceButton.disabled = true;
+        voiceButton.textContent = 'Voice input not supported';
+        transcriptSpan.textContent = 'Your browser does not support the Web Speech API.';
+    }
+
+    stageVideo.addEventListener('ended', () => {
+        stageVideo.pause();
+    });
 });
 
 async function getImpactFromAI(text) {
@@ -83,64 +166,3 @@ async function getImpactFromAI(text) {
         return 0;
     }
 }
-
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-if (SpeechRecognition) {
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.lang = 'en-US';
-
-    voiceButton.addEventListener('click', () => {
-        if (voiceButton.textContent === 'Speak') {
-            recognition.start();
-            voiceButton.textContent = 'Listening...';
-        } else {
-            recognition.stop();
-            voiceButton.textContent = 'Speak';
-        }
-    });
-
-    recognition.onresult = async (event) => {
-        const transcript = event.results[0][0].transcript.toLowerCase();
-        transcriptSpan.textContent = `You said: "${transcript}"`;
-
-        voiceButton.textContent = 'Thinking...';
-        voiceButton.disabled = true;
-        const awardedPoints = await getImpactFromAI(transcript);
-        voiceButton.textContent = 'Speak';
-        voiceButton.disabled = false;
-
-        if (awardedPoints > 0) {
-            points += awardedPoints;
-            pointsSpan.textContent = points;
-            transcriptSpan.textContent += `\nAI awarded ${awardedPoints} points!`;
-
-            const currentStage = stages.slice().reverse().find(stage => points >= stage.points);
-            if (currentStage) {
-                treeImg.style.display = 'none';
-                stageVideo.style.display = 'block';
-                const videoUrl = new URL(currentStage.video, window.location.href).href;
-                if (stageVideo.src !== videoUrl) {
-                    stageVideo.src = currentStage.video;
-                }
-            }
-        } else {
-            transcriptSpan.textContent += '\nAI detected no significant environmental impact.';
-        }
-    };
-
-    recognition.onend = () => {
-        if (voiceButton.textContent === 'Listening...') {
-            voiceButton.textContent = 'Speak';
-        }
-    };
-
-} else {
-    voiceButton.disabled = true;
-    voiceButton.textContent = 'Voice input not supported';
-    transcriptSpan.textContent = 'Your browser does not support the Web Speech API.';
-}
-
-stageVideo.addEventListener('ended', () => {
-    stageVideo.pause();
-});
