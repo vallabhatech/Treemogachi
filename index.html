@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Treemogachi</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="welcome-container">
+        <h1>Welcome to Treemogachi!</h1>
+        <p>This is a virtual pet tree. Your goal is to help it grow.</p>
+        <p>Click the button to give it points and watch it evolve.</p>
+        <button id="start-game">Start</button>
+    </div>
+    <div id="game-container" style="display: none;">
+        <img id="tree" src="assets/stage0.png" alt="tree">
+        <video id="stage-video" style="display: none;" autoplay muted></video>
+        <div id="top-right-ui">
+            <button id="mute-button">🔊</button>
+        </div>
+        <div id="ui-container">
+            <p>Points: <span id="points">0</span></p>
+            <button id="voice-button">Speak</button>
+            <p id="transcript"></p>
+        </div>
+    </div>
+    <script src="app.js"></script>
+    <audio id="background-audio" loop>
+        <source src="assets/ambient.mp3" type="audio/mpeg">
+    </audio>
+</body>
+</html>
